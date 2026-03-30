@@ -21,6 +21,7 @@
     <PackageReference Include="Microsoft.Extensions.Azure" Version="1.13.1" />
     <PackageReference Include="Microsoft.Identity.Web" Version="3.14.1" />
     <PackageReference Include="Microsoft.Identity.Web.DownstreamApi" Version="3.14.1" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="10.1.5" />
   </ItemGroup>
 
   <ItemGroup>

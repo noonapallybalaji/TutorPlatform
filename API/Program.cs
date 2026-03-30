@@ -44,6 +44,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
     .AddEntityFrameworkStores<AppDbContext>()
     .AddDefaultTokenProviders();
+builder.Services.AddScoped<IStorageService, BlobStorageService>();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll",
@@ -52,6 +53,7 @@ builder.Services.AddCors(options =>
             .AllowAnyHeader()
             .AllowAnyMethod());
 });
+
 
 var app = builder.Build();
 

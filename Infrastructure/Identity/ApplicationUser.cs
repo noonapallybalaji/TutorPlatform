@@ -10,4 +10,6 @@ public class ApplicationUser : IdentityUser
     public Guid? LocationId { get; set; }
     public Location Location { get; set; } = new Location();
 
+    // Role (optional if using Identity Roles separately)
+    public string? UserType { get; set; } // Parent, Student, Tutor, Admin
 }
