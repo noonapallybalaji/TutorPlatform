@@ -108,12 +108,15 @@ using (var scope = app.Services.CreateScope())
 
 // -------------------- PIPELINE --------------------
 
-if (app.Environment.IsDevelopment())
+if (app.Environment.IsDevelopment() || app.Environment.IsStaging())
 {
     app.UseSwagger();
-    app.UseSwaggerUI();
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "API V1");
+        c.RoutePrefix = string.Empty;
+    });
 }
-
 app.UseHttpsRedirection();
 
 app.UseCors("AllowAll");
