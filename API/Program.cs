@@ -11,11 +11,28 @@ using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// -------------------- SERVICES --------------------
+
+builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+// Custom services
 builder.Services.AddScoped<JwtService>();
 builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<IStorageService, BlobStorageService>();
+
+// -------------------- JWT CONFIG --------------------
+
+var jwtKey = builder.Configuration["Jwt:Key"];
+
+if (string.IsNullOrEmpty(jwtKey))
+{
+    throw new Exception("JWT Key is missing. Set Jwt__Key in Azure App Settings.");
+}
+
+var key = Encoding.UTF8.GetBytes(jwtKey);
+
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -23,8 +40,6 @@ builder.Services.AddAuthentication(options =>
 })
 .AddJwtBearer(options =>
 {
-    var key = Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!);
-
     options.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuerSigningKey = true,
@@ -35,38 +50,64 @@ builder.Services.AddAuthentication(options =>
 });
 
 builder.Services.AddAuthorization();
+//builder.Services.AddOpenApi();
+// -------------------- DATABASE CONFIG --------------------
 
-builder.Services.AddControllers();
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
-builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
-    .AddEntityFrameworkStores<AppDbContext>()
-    .AddDefaultTokenProviders();
-builder.Services.AddScoped<IStorageService, BlobStorageService>();
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+
+if (!string.IsNullOrEmpty(connectionString))
+{
+    builder.Services.AddDbContext<AppDbContext>(options =>
+        options.UseSqlServer(connectionString));
+
+    builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
+        .AddEntityFrameworkStores<AppDbContext>()
+        .AddDefaultTokenProviders();
+}
+else
+{
+    Console.WriteLine("⚠️ Warning: No database connection configured.");
+}
+
+// -------------------- CORS --------------------
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll",
         policy => policy
-            .AllowAnyOrigin()   // ✅ FIX
+            .AllowAnyOrigin()
             .AllowAnyHeader()
             .AllowAnyMethod());
 });
 
+// -------------------- BUILD APP --------------------
 
 var app = builder.Build();
 
+// -------------------- SEEDING (SAFE) --------------------
+
 using (var scope = app.Services.CreateScope())
 {
-    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-   // db.Database.Migrate(); // auto apply migrations
+    try
+    {
+        var db = scope.ServiceProvider.GetService<AppDbContext>();
 
-    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
-    await RoleSeeder.SeedRoles(roleManager);
+        if (db != null)
+        {
+            // db.Database.Migrate(); // enable later when DB is ready
+
+            var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+            await RoleSeeder.SeedRoles(roleManager);
+        }
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine("⚠️ Startup/Seeding error: " + ex.Message);
+    }
 }
 
-// Configure the HTTP request pipeline.
+// -------------------- PIPELINE --------------------
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -75,10 +116,11 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-app.UseCors("AllowAll");   // ✅ ADD HERE
+app.UseCors("AllowAll");
 
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
 app.Run();
